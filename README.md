@@ -1,4 +1,3 @@
 streamlit
-sentence-transformers
+fastembed
 yt-dlp
-torch
