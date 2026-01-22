@@ -4,16 +4,21 @@ import yt_dlp
 import torch
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="IITM Search Engine", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="IITM Neural Search", page_icon="🧠", layout="wide")
 
-# --- AI SETUP ---
+# --- 1. LOAD AI MODEL (The "Brain") ---
 @st.cache_resource
 def load_model():
+    # We use a standard efficient model. It downloads once and stays in memory.
     return SentenceTransformer('all-MiniLM-L6-v2')
 
-model = load_model()
+try:
+    model = load_model()
+except Exception as e:
+    st.error(f"Error loading AI model: {e}")
+    st.stop()
 
-# --- BACKEND LOGIC ---
+# --- 2. BACKEND LOGIC ---
 @st.cache_data(ttl=3600)
 def fetch_course_catalog():
     """Scrapes the live YouTube playlists tab"""
@@ -44,7 +49,7 @@ def fetch_course_catalog():
     return dict(sorted(clean_catalog.items()))
 
 def index_course(playlist_url):
-    """Downloads and Indexes a specific course"""
+    """Downloads titles and converts them to AI Embeddings (Vectors)"""
     ydl_opts = {'quiet': True, 'extract_flat': True, 'ignoreerrors': True}
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -63,14 +68,16 @@ def index_course(playlist_url):
                 metadata.append({"id": vid_id, "title": title})
 
     if titles:
-        # Create Embeddings
+        # --- THE MAGIC ---
+        # Instead of a database, we convert titles to Tensors and keep them in RAM.
+        # This is fast and crash-proof for course-sized lists.
         embeddings = model.encode(titles, convert_to_tensor=True)
         return len(titles), embeddings, metadata
         
     return 0, None, []
 
-# --- FRONTEND UI ---
-st.sidebar.title("🎓 IITM Search")
+# --- 3. FRONTEND UI ---
+st.sidebar.title("🧠 IITM Neural Search")
 st.sidebar.markdown("---")
 
 # Load Catalog
@@ -85,53 +92,57 @@ selected_course = st.sidebar.selectbox("1. Select Course:", list(st.session_stat
 # Load Button
 if st.sidebar.button("2. Load Course Videos"):
     url = st.session_state.catalog[selected_course]
-    with st.spinner(f"Indexing {selected_course}..."):
+    with st.spinner(f"Reading & Understanding {selected_course}..."):
         count, embeddings, meta = index_course(url)
         if count > 0:
             st.session_state.active_embeddings = embeddings
             st.session_state.active_meta = meta
             st.session_state.course_name = selected_course
-            st.success(f"✅ Ready! Indexed {count} lectures.")
+            st.success(f"✅ Ready! AI has read {count} titles.")
         else:
             st.error("No videos found in this playlist.")
 
 st.sidebar.markdown("---")
-st.sidebar.info("Tip: Select a course, click Load, then search.")
 
 # Main Search Area
-st.title("Search Engine")
+st.title("Neural Search Engine")
 
 if 'active_embeddings' in st.session_state:
     st.caption(f"Searching inside: **{st.session_state.course_name}**")
     query = st.text_input("Enter Topic:", placeholder="e.g. Gradient Descent, Hypothesis Testing...")
     
     if query:
-        # 1. Convert Query to Vector
+        # 1. Convert User Query to Vector
         query_embedding = model.encode(query, convert_to_tensor=True)
         
-        # 2. Pure Math Search (Cosine Similarity)
-        # We calculate the score against ALL video titles instantly
+        # 2. Semantic Search (Cosine Similarity)
+        # Compare query against all video titles in memory
         cos_scores = util.cos_sim(query_embedding, st.session_state.active_embeddings)[0]
         
-        # 3. Find Top 10 matches
+        # 3. Get Top 10 Results
         top_results = torch.topk(cos_scores, k=min(10, len(st.session_state.active_meta)))
         
         st.markdown("### Results")
         
-        if top_results.values[0] < 0.2: # If the best match is very low score
-             st.warning("No close matches found. Try a different keyword.")
-        else:
-            for score, idx in zip(top_results.values, top_results.indices):
+        # Display Loop
+        found_good_match = False
+        for score, idx in zip(top_results.values, top_results.indices):
+            if score > 0.25: # Only show relevant results
+                found_good_match = True
                 meta = st.session_state.active_meta[idx]
                 url = f"https://www.youtube.com/watch?v={meta['id']}"
                 
                 st.markdown(f"""
-                <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #28a745;">
+                <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #4B0082;">
                     <a href="{url}" target="_blank" style="text-decoration: none; color: #000; font-weight: bold; font-size: 18px;">
                         🎥 {meta['title']}
                     </a>
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;">Relevance Score: {score:.2f}</div>
                 </div>
                 """, unsafe_allow_html=True)
+        
+        if not found_good_match:
+            st.warning("No close matches found. Try a different term.")
+
 else:
     st.info("👈 Please select a course and click 'Load Course Videos' to start.")
-
