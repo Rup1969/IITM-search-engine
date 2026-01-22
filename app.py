@@ -1,7 +1,24 @@
 import sys
-# 1. Force the new SQLite version before importing modules
-__import__('pysqlite3')
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+import os
+
+# --- SQLITE FIX FOR STREAMLIT CLOUD ---
+# We wrap this in a try-except block so it doesn't crash the app immediately.
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    # If this fails, we just continue. 
+    # ChromaDB might complain later about an old SQLite version, 
+    # but at least the app will load.
+    pass
+# ---------------------------------------
+
+import streamlit as st
+import chromadb
+from sentence_transformers import SentenceTransformer
+import yt_dlp
+
+# ... rest of your code ...
 
 import streamlit as st
 import chromadb
@@ -151,3 +168,4 @@ if 'active_collection' in st.session_state:
             st.warning("No matches found.")
 else:
     st.info("👈 Please select a course and click 'Load Course Videos' in the sidebar to start.")
+
