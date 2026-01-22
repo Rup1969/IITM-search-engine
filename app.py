@@ -1,9 +1,7 @@
 import streamlit as st
-import faiss
-import numpy as np
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, util
 import yt_dlp
-import os
+import torch
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="IITM Search Engine", page_icon="🎓", layout="wide")
@@ -46,7 +44,7 @@ def fetch_course_catalog():
     return dict(sorted(clean_catalog.items()))
 
 def index_course(playlist_url):
-    """Downloads and Indexes a specific course using FAISS"""
+    """Downloads and Indexes a specific course"""
     ydl_opts = {'quiet': True, 'extract_flat': True, 'ignoreerrors': True}
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -65,19 +63,11 @@ def index_course(playlist_url):
                 metadata.append({"id": vid_id, "title": title})
 
     if titles:
-        # Convert titles to vectors
-        embeddings = model.encode(titles)
-        # FAISS requires float32 format
-        embeddings = np.array(embeddings).astype('float32')
+        # Create Embeddings
+        embeddings = model.encode(titles, convert_to_tensor=True)
+        return len(titles), embeddings, metadata
         
-        # Create FAISS Index
-        dimension = embeddings.shape[1]
-        index = faiss.IndexFlatL2(dimension)
-        index.add(embeddings)
-        
-        return len(titles), index, metadata, titles
-        
-    return 0, None, [], []
+    return 0, None, []
 
 # --- FRONTEND UI ---
 st.sidebar.title("🎓 IITM Search")
@@ -96,9 +86,9 @@ selected_course = st.sidebar.selectbox("1. Select Course:", list(st.session_stat
 if st.sidebar.button("2. Load Course Videos"):
     url = st.session_state.catalog[selected_course]
     with st.spinner(f"Indexing {selected_course}..."):
-        count, index, meta, titles = index_course(url)
+        count, embeddings, meta = index_course(url)
         if count > 0:
-            st.session_state.active_index = index
+            st.session_state.active_embeddings = embeddings
             st.session_state.active_meta = meta
             st.session_state.course_name = selected_course
             st.success(f"✅ Ready! Indexed {count} lectures.")
@@ -111,38 +101,37 @@ st.sidebar.info("Tip: Select a course, click Load, then search.")
 # Main Search Area
 st.title("Search Engine")
 
-if 'active_index' in st.session_state:
+if 'active_embeddings' in st.session_state:
     st.caption(f"Searching inside: **{st.session_state.course_name}**")
     query = st.text_input("Enter Topic:", placeholder="e.g. Gradient Descent, Hypothesis Testing...")
     
     if query:
-        # Search FAISS
-        query_vec = model.encode([query])
-        query_vec = np.array(query_vec).astype('float32')
+        # 1. Convert Query to Vector
+        query_embedding = model.encode(query, convert_to_tensor=True)
         
-        # Get top 10 matches
-        k = 10 
-        distances, indices = st.session_state.active_index.search(query_vec, k)
+        # 2. Pure Math Search (Cosine Similarity)
+        # We calculate the score against ALL video titles instantly
+        cos_scores = util.cos_sim(query_embedding, st.session_state.active_embeddings)[0]
+        
+        # 3. Find Top 10 matches
+        top_results = torch.topk(cos_scores, k=min(10, len(st.session_state.active_meta)))
         
         st.markdown("### Results")
-        found = False
-        for i in range(k):
-            idx = indices[0][i]
-            if idx < len(st.session_state.active_meta): # Safety check
-                found = True
+        
+        if top_results.values[0] < 0.2: # If the best match is very low score
+             st.warning("No close matches found. Try a different keyword.")
+        else:
+            for score, idx in zip(top_results.values, top_results.indices):
                 meta = st.session_state.active_meta[idx]
                 url = f"https://www.youtube.com/watch?v={meta['id']}"
                 
                 st.markdown(f"""
-                <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #ff4b4b;">
+                <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #28a745;">
                     <a href="{url}" target="_blank" style="text-decoration: none; color: #000; font-weight: bold; font-size: 18px;">
                         🎥 {meta['title']}
                     </a>
                 </div>
                 """, unsafe_allow_html=True)
-        
-        if not found:
-            st.warning("No matches found.")
 else:
     st.info("👈 Please select a course and click 'Load Course Videos' to start.")
 
