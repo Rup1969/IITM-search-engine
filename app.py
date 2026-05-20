@@ -29,7 +29,7 @@ def fetch_course_catalog():
         'playlistend': 500,
         'ignoreerrors': True
     }
-    channel_url = "https://www.youtube.com/@IITMadrasBSDegreeProgramme/playlists"
+    channel_url = "https://www.youtube.com/@IITMadrasBSDegreeProgramme/courses"
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
