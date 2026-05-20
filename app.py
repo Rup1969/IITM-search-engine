@@ -165,8 +165,8 @@ with st.sidebar:
     course_options = ["ALL COURSES"] + list(catalog.keys()) + extra_names
     selected = st.selectbox("Select Course", course_options)
 
-    top_k     = st.slider("Max results", 3, 10, 6)
-    threshold = st.slider("Min relevance", 0.20, 0.60, 0.35, 0.05)
+    top_k     = st.selectbox("Max results", [3, 4, 5, 6, 7, 8, 9, 10], index=3)
+    threshold = st.selectbox("Min relevance", [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50], index=3)
 
     st.divider()
     refresh_btn = st.button("🔄 Refresh from YouTube", use_container_width=True,
