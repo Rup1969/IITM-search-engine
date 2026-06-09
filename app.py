@@ -6,7 +6,9 @@ import json, os, time
 
 
 # ── Google Analytics ──────────────────────────────────────
-st.html("""
+
+
+st.markdown("""
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-KZGDGQ975Y"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -14,10 +16,7 @@ st.html("""
   gtag('js', new Date());
   gtag('config', 'G-KZGDGQ975Y');
 </script>
-""")
-# ─────────────────────────────────────────────────────────
-
-# ... rest of your app code continues normally ...
+""", unsafe_allow_html=True)
 
 
 # ... the rest of your app code starts here ...
