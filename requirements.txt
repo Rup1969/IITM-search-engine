@@ -2,3 +2,4 @@ streamlit
 fastembed
 yt-dlp
 numpy
+streamlit-google-analytics-tag
