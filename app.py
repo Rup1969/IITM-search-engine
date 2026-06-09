@@ -4,15 +4,21 @@ import yt_dlp
 import numpy as np
 import json, os, time
 
-from streamlit_gtag import st_gtag
 
-# Replace with your actual ID!
-st_gtag(
-    gtag_id="G-KZGDGQ975Y", 
-    config={
-        "send_page_view": True 
-    }
-)
+# ── Google Analytics ──────────────────────────────────────
+st.html("""
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+""")
+# ─────────────────────────────────────────────────────────
+
+# ... rest of your app code continues normally ...
+
 
 # ... the rest of your app code starts here ...
 st.set_page_config(page_title="IITM Neural Search", page_icon="🎓", layout="wide")
