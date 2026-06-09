@@ -4,22 +4,6 @@ import yt_dlp
 import numpy as np
 import json, os, time
 
-
-# ── Google Analytics ──────────────────────────────────────
-
-
-st.markdown("""
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-KZGDGQ975Y"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-KZGDGQ975Y');
-</script>
-""", unsafe_allow_html=True)
-
-
-# ... the rest of your app code starts here ...
 st.set_page_config(page_title="IITM Neural Search", page_icon="🎓", layout="wide")
 
 st.markdown("""
